@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <!-- Must stay in sync with BG in tools/make_crying_brain_gif.py so the
+         (opaque) GIF blends into the card it sits on. -->
+    <color name="overlay_card">#16122B</color>
+    <color name="overlay_text">#F4EEFF</color>
+    <color name="overlay_text_dim">#B9AFD6</color>
+    <color name="brain_pink">#F7A0C4</color>
+    <color name="brain_dark">#3C203E</color>
+    <color name="tear_blue">#6DC5FF</color>
+</resources>

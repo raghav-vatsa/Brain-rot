@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Brain Rot</string>
+
+    <string name="channel_name">Usage monitoring</string>
+    <string name="channel_description">Keeps the app-usage watcher running.</string>
+    <string name="notification_title">Watching your brain</string>
+    <string name="notification_text_none">No apps selected yet</string>
+    <string name="notification_text">Watching %1$d app(s)</string>
+    <string name="notification_stop">Stop</string>
+
+    <string name="overlay_title">Your brain is crying</string>
+    <string name="overlay_message">%1$s for %2$s. You said %3$s.</string>
+    <string name="overlay_snooze">%1$s more</string>
+    <string name="overlay_quit">I\'ll stop</string>
+    <string name="crying_brain">A crying brain</string>
+</resources>
