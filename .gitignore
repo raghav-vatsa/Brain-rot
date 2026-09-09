@@ -4,8 +4,16 @@
 /.idea/
 .DS_Store
 /build
+android/build/
 /captures
 .externalNativeBuild
 .cxx
 local.properties
-app/build/
+android/app/build/
+
+# iOS
+ios/*.xcodeproj/
+ios/*.xcworkspace/
+ios/build/
+ios/DerivedData/
+xcuserdata/
