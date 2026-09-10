@@ -132,15 +132,37 @@ on; change one and change the other.
 
 ## Status
 
-Neither app has been compiled. The environment they were written in has no
-Android SDK, no Mac, and no Xcode, and the network policy blocks Google's Maven
-repository, so nothing here has been through a compiler. The logic and the APIs
-were written carefully but are unverified. Expect to fix build errors on the
-first run.
+Both apps compile in CI, on every push, via `.github/workflows/build.yml`.
+That workflow exists because neither app can be built on a Windows machine:
+Android needs the Android SDK, and iOS needs Xcode, which runs only on macOS.
+Pushing a commit is how you reach a compiler.
 
-Two iOS details in particular are worth checking on a device, since their exact
-behaviour is hard to confirm without one:
+| | State |
+| --- | --- |
+| Android | Compiles; unit tests pass; the debug APK is uploaded as a run artifact you can download and install |
+| iOS | All four targets compile against the device SDK, unsigned |
+| Either app running on real hardware | Not yet verified |
 
-- `ShieldActionResponse.defer` is used to let the user through after a snooze.
-- Threshold callbacks can lag; Apple does not promise the notification arrives
+Building is not the same as working. The iOS app in particular has never been
+installed on a phone, and a few things can only be confirmed there:
+
+- `ShieldActionResponse.defer` is used to let you through after a snooze.
+- Threshold callbacks can lag. Apple does not promise the notification arrives
   the instant the limit is crossed.
+- The Family Controls entitlement has to be live on your developer account
+  before a signed build will install.
+
+## Getting the iOS app onto a phone
+
+CI compiles it but cannot install it. That still needs one of:
+
+- **A Mac**, with the iPhone plugged in. The most direct route.
+- **A rented cloud Mac** (MacinCloud, MacStadium, AWS EC2 Mac). Fine for
+  compiling and signing, but your phone is not attached to it, so installing
+  remains a problem.
+- **TestFlight**, which sidesteps the cable but needs Apple to approve the
+  Family Controls distribution entitlement first.
+
+Neither an iPad nor a Windows PC can do this. Xcode does not exist for iPadOS,
+and Swift Playgrounds cannot build app extensions or set the entitlements these
+extensions need.
