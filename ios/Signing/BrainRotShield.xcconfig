@@ -1,0 +1,13 @@
+// Signing for the BrainRotShield target.
+//
+// These defaults keep local development on automatic signing, which is what
+// you want when running from Xcode on your own Mac.
+//
+// The release workflow (.github/workflows/ios-release.yml) overwrites this
+// file with manual signing values pulled from repository secrets, so that a
+// signed .ipa can be produced in CI without a Mac. Do not put real team IDs
+// or profile names here; they arrive from secrets at build time.
+
+CODE_SIGN_STYLE = Automatic
+DEVELOPMENT_TEAM =
+PROVISIONING_PROFILE_SPECIFIER =

@@ -39,6 +39,9 @@ targets:
         ASSETCATALOG_COMPILER_APPICON_NAME: AppIcon
         INFOPLIST_FILE: BrainRot/Info.plist
         CODE_SIGN_ENTITLEMENTS: BrainRot/BrainRot.entitlements
+    configFiles:
+      Debug: Signing/BrainRot.xcconfig
+      Release: Signing/BrainRot.xcconfig
     dependencies:
       - target: BrainRotMonitor
       - target: BrainRotShield
@@ -61,6 +64,9 @@ targets:
         PRODUCT_NAME: BrainRotMonitor
         INFOPLIST_FILE: BrainRotMonitor/Info.plist
         CODE_SIGN_ENTITLEMENTS: BrainRotMonitor/BrainRotMonitor.entitlements
+    configFiles:
+      Debug: Signing/BrainRotMonitor.xcconfig
+      Release: Signing/BrainRotMonitor.xcconfig
 
   # Styles the blocking screen iOS draws over a shielded app.
   BrainRotShield:
@@ -78,6 +84,9 @@ targets:
         PRODUCT_NAME: BrainRotShield
         INFOPLIST_FILE: BrainRotShield/Info.plist
         CODE_SIGN_ENTITLEMENTS: BrainRotShield/BrainRotShield.entitlements
+    configFiles:
+      Debug: Signing/BrainRotShield.xcconfig
+      Release: Signing/BrainRotShield.xcconfig
 
   # Handles the two buttons on that screen.
   BrainRotShieldAction:
@@ -95,6 +104,9 @@ targets:
         PRODUCT_NAME: BrainRotShieldAction
         INFOPLIST_FILE: BrainRotShieldAction/Info.plist
         CODE_SIGN_ENTITLEMENTS: BrainRotShieldAction/BrainRotShieldAction.entitlements
+    configFiles:
+      Debug: Signing/BrainRotShieldAction.xcconfig
+      Release: Signing/BrainRotShieldAction.xcconfig
 
 schemes:
   BrainRot:

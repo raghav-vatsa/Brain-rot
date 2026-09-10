@@ -1,0 +1,144 @@
+# Produces a signed, installable .ipa without anyone touching a Mac.
+#
+# This does NOT run on push: it needs Apple credentials in repository secrets,
+# and it would fail noisily on every commit until those exist. Start it by hand
+# from the Actions tab.
+#
+# Required secrets (see the README for how to obtain each):
+#   APPLE_TEAM_ID                  10-character team ID
+#   IOS_DIST_CERTIFICATE_P12       base64 of the .p12 distribution certificate
+#   IOS_DIST_CERTIFICATE_PASSWORD  password set when exporting that .p12
+#   IOS_PROFILE_APP                base64 .mobileprovision for the app
+#   IOS_PROFILE_MONITOR            base64 .mobileprovision for the monitor
+#   IOS_PROFILE_SHIELD             base64 .mobileprovision for the shield
+#   IOS_PROFILE_SHIELD_ACTION      base64 .mobileprovision for the shield action
+name: iOS signed build
+
+on:
+  workflow_dispatch:
+    inputs:
+      export_method:
+        description: How the build will be distributed
+        required: true
+        default: release-testing
+        type: choice
+        options:
+          # Xcode 15 renamed these. release-testing is what used to be ad-hoc:
+          # installable on devices whose UDIDs are in the provisioning profile.
+          - release-testing
+          - app-store-connect
+          - debugging
+
+jobs:
+  signed-ipa:
+    name: Archive and export
+    runs-on: macos-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Check the secrets are present
+        env:
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          CERT: ${{ secrets.IOS_DIST_CERTIFICATE_P12 }}
+          PROFILE_APP: ${{ secrets.IOS_PROFILE_APP }}
+        run: |
+          missing=""
+          [ -n "$TEAM_ID" ]     || missing="$missing APPLE_TEAM_ID"
+          [ -n "$CERT" ]        || missing="$missing IOS_DIST_CERTIFICATE_P12"
+          [ -n "$PROFILE_APP" ] || missing="$missing IOS_PROFILE_APP"
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing"
+            echo "The README section 'Signing the iOS app in CI' lists how to create each one."
+            exit 1
+          fi
+
+      # A throwaway keychain, so the signing identity never lingers on the
+      # runner and nothing touches the login keychain.
+      - name: Import the signing certificate
+        env:
+          CERT_P12: ${{ secrets.IOS_DIST_CERTIFICATE_P12 }}
+          CERT_PASSWORD: ${{ secrets.IOS_DIST_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN="$RUNNER_TEMP/signing.keychain-db"
+          KEYCHAIN_PASSWORD="$(uuidgen)"
+          echo "$CERT_P12" | base64 --decode > "$RUNNER_TEMP/certificate.p12"
+
+          security create-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security set-keychain-settings -lut 21600 "$KEYCHAIN"
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" "$KEYCHAIN"
+          security import "$RUNNER_TEMP/certificate.p12" \
+            -P "$CERT_PASSWORD" \
+            -A -t cert -f pkcs12 -k "$KEYCHAIN"
+          security set-key-partition-list -S apple-tool:,apple: \
+            -k "$KEYCHAIN_PASSWORD" "$KEYCHAIN" > /dev/null
+          security list-keychain -d user -s "$KEYCHAIN" login.keychain-db
+
+          rm -f "$RUNNER_TEMP/certificate.p12"
+          echo "Identities available to the build:"
+          security find-identity -v -p codesigning "$KEYCHAIN"
+
+      - name: Install the provisioning profiles
+        env:
+          PROFILE_APP: ${{ secrets.IOS_PROFILE_APP }}
+          PROFILE_MONITOR: ${{ secrets.IOS_PROFILE_MONITOR }}
+          PROFILE_SHIELD: ${{ secrets.IOS_PROFILE_SHIELD }}
+          PROFILE_SHIELD_ACTION: ${{ secrets.IOS_PROFILE_SHIELD_ACTION }}
+          TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          mkdir -p "$RUNNER_TEMP/profiles"
+          write_profile () {
+            [ -n "$2" ] || { echo "::error::Secret $1 is empty"; exit 1; }
+            echo "$2" | base64 --decode > "$RUNNER_TEMP/profiles/$1.mobileprovision"
+          }
+          write_profile app          "$PROFILE_APP"
+          write_profile monitor      "$PROFILE_MONITOR"
+          write_profile shield       "$PROFILE_SHIELD"
+          write_profile shieldaction "$PROFILE_SHIELD_ACTION"
+
+          ios/Signing/configure-signing.sh \
+            "$RUNNER_TEMP/profiles" \
+            "$TEAM_ID" \
+            "${{ inputs.export_method }}" \
+            "$RUNNER_TEMP/ExportOptions.plist"
+
+      - name: Install XcodeGen
+        run: brew install xcodegen
+
+      - name: Generate the Xcode project
+        working-directory: ios
+        run: xcodegen generate
+
+      - name: Archive
+        working-directory: ios
+        run: |
+          xcodebuild archive \
+            -project BrainRot.xcodeproj \
+            -scheme BrainRot \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/BrainRot.xcarchive" \
+            -allowProvisioningUpdates NO
+
+      - name: Export the .ipa
+        run: |
+          xcodebuild -exportArchive \
+            -archivePath "$RUNNER_TEMP/BrainRot.xcarchive" \
+            -exportOptionsPlist "$RUNNER_TEMP/ExportOptions.plist" \
+            -exportPath "$RUNNER_TEMP/export"
+          ls -la "$RUNNER_TEMP/export"
+
+      - name: Upload the .ipa
+        uses: actions/upload-artifact@v4
+        with:
+          name: brain-rot-ios-ipa
+          path: ${{ runner.temp }}/export/*.ipa
+          if-no-files-found: error
+
+      # The keychain dies with the runner anyway, but leaving credentials
+      # sitting around for the rest of the job is a bad habit.
+      - name: Clean up
+        if: always()
+        run: |
+          security delete-keychain "$RUNNER_TEMP/signing.keychain-db" || true
+          rm -rf "$RUNNER_TEMP/profiles"

@@ -152,16 +152,108 @@ installed on a phone, and a few things can only be confirmed there:
 - The Family Controls entitlement has to be live on your developer account
   before a signed build will install.
 
+## Signing the iOS app in CI
+
+`.github/workflows/ios-release.yml` archives, signs and exports a real `.ipa`
+on a GitHub macOS runner. You never need a Mac of your own. It does not run on
+push; start it from the Actions tab once the secrets below exist.
+
+**The one thing this cannot do for you.** Family Controls is a restricted
+capability. Apple grants it automatically for builds you run from Xcode onto
+your own device, but *any* other distribution, this CI pipeline included, needs
+Apple to approve an entitlement request against your account first. Until that
+approval lands, the App IDs below cannot carry the capability and the signed
+build will not install. Request it early, then set up the rest while you wait:
+
+> developer.apple.com → Account → **Family Controls (Distribution)** request form
+
+### 1. Register four App IDs
+
+One per target, each with the **Family Controls** and **App Groups**
+capabilities ticked. Wildcards will not work; Family Controls needs explicit IDs.
+
+| Target | Bundle ID |
+| --- | --- |
+| App | `com.brainrot.detector` |
+| Monitor | `com.brainrot.detector.monitor` |
+| Shield | `com.brainrot.detector.shield` |
+| Shield action | `com.brainrot.detector.shieldaction` |
+
+Use your own namespace instead of `com.brainrot`, and change it in
+`ios/project.yml`, the four `.entitlements` files, and `BrainRot.appGroup` in
+`ios/Shared/BrainRotShared.swift`. The signing script reads the bundle IDs back
+out of `project.yml`, so it follows any renaming automatically.
+
+### 2. Make a distribution certificate, on Windows
+
+Apple's instructions assume Keychain Access. OpenSSL does the same job:
+
+```powershell
+openssl genrsa -out ios_dist.key 2048
+openssl req -new -key ios_dist.key -out ios_dist.csr `
+  -subj "/emailAddress=you@example.com/CN=Your Name/C=US"
+```
+
+Upload `ios_dist.csr` to developer.apple.com under Certificates → **Apple
+Distribution**, download the resulting `ios_dist.cer`, then bundle key and
+certificate into the `.p12` the workflow wants:
+
+```powershell
+openssl x509 -inform DER -outform PEM -in ios_dist.cer -out ios_dist.pem
+openssl pkcs12 -export -inkey ios_dist.key -in ios_dist.pem `
+  -out ios_dist.p12 -passout pass:CHOOSE_A_PASSWORD
+```
+
+### 3. Make four provisioning profiles
+
+One per App ID. Pick **Ad Hoc** to install directly on your own phone, or **App
+Store** to go through TestFlight. Ad Hoc profiles only work on devices whose
+UDID you registered first; iTunes on Windows will show you your iPhone's UDID.
+
+### 4. Add the secrets
+
+Settings → Secrets and variables → Actions. Base64-encode each file first:
+
+```powershell
+[Convert]::ToBase64String([IO.File]::ReadAllBytes("ios_dist.p12")) | Set-Clipboard
+```
+
+| Secret | Contents |
+| --- | --- |
+| `APPLE_TEAM_ID` | Your 10-character team ID |
+| `IOS_DIST_CERTIFICATE_P12` | base64 of `ios_dist.p12` |
+| `IOS_DIST_CERTIFICATE_PASSWORD` | The password you chose above |
+| `IOS_PROFILE_APP` | base64 of the app's `.mobileprovision` |
+| `IOS_PROFILE_MONITOR` | base64 of the monitor's |
+| `IOS_PROFILE_SHIELD` | base64 of the shield's |
+| `IOS_PROFILE_SHIELD_ACTION` | base64 of the shield action's |
+
+### 5. Run it
+
+Actions → **iOS signed build** → Run workflow. Choose `release-testing` for an
+ad-hoc build, or `app-store-connect` for TestFlight. The `.ipa` appears as a
+run artifact.
+
+To get an ad-hoc `.ipa` onto the phone from Windows, upload it to an
+over-the-air install service such as Diawi and open the link on the phone. For
+the App Store route, upload the `.ipa` to App Store Connect and install through
+TestFlight.
+
+The signing pipeline itself has not been run end to end, because it needs a
+real Apple account. The build, archive and export steps are wired up and the
+profile-matching script is tested, but expect to iterate on the first run.
+
 ## Getting the iOS app onto a phone
 
-CI compiles it but cannot install it. That still needs one of:
+Three routes, in rough order of how much friction they carry:
 
-- **A Mac**, with the iPhone plugged in. The most direct route.
-- **A rented cloud Mac** (MacinCloud, MacStadium, AWS EC2 Mac). Fine for
-  compiling and signing, but your phone is not attached to it, so installing
-  remains a problem.
-- **TestFlight**, which sidesteps the cable but needs Apple to approve the
-  Family Controls distribution entitlement first.
+- **CI signing**, above. No Mac at any point, but gated on Apple approving the
+  Family Controls entitlement.
+- **A Mac**, with the iPhone plugged in. The only route that skips the
+  entitlement request, since Xcode grants Family Controls for local development
+  builds. Borrowed or rented by the hour both work for the initial proof that
+  the app behaves.
+- **TestFlight**, which needs the same Apple approval as CI signing.
 
 Neither an iPad nor a Windows PC can do this. Xcode does not exist for iPadOS,
 and Swift Playgrounds cannot build app extensions or set the entitlements these
