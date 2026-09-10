@@ -12,9 +12,9 @@ enum BrainRot {
 
     static let storeName = ManagedSettingsStore.Name("brainRot")
     static let windowActivity = DeviceActivityName("brainRot.window")
-    static let limitEvent = DeviceActivityEventName("brainRot.limit")
+    static let limitEvent = DeviceActivityEvent.Name("brainRot.limit")
     static let snoozeActivity = DeviceActivityName("brainRot.snooze")
-    static let snoozeEvent = DeviceActivityEventName("brainRot.snooze")
+    static let snoozeEvent = DeviceActivityEvent.Name("brainRot.snooze")
 }
 
 /// How often the usage counter starts over. iOS counts usage per scheduled

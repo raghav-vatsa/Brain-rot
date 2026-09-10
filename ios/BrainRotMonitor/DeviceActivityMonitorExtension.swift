@@ -24,7 +24,7 @@ class DeviceActivityMonitorExtension: DeviceActivityMonitor {
     }
 
     override func eventDidReachThreshold(
-        _ event: DeviceActivityEventName,
+        _ event: DeviceActivityEvent.Name,
         activity: DeviceActivityName
     ) {
         super.eventDidReachThreshold(event, activity: activity)
