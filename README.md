@@ -243,18 +243,53 @@ The signing pipeline itself has not been run end to end, because it needs a
 real Apple account. The build, archive and export steps are wired up and the
 profile-matching script is tested, but expect to iterate on the first run.
 
-## Getting the iOS app onto a phone
+## Testing it on your own iPhone
 
-Three routes, in rough order of how much friction they carry:
+Two things gate this, and they are separate: **signing** the build, and Apple
+granting the **Family Controls** entitlement. CI solves the first. Only one
+route avoids waiting on the second.
 
-- **CI signing**, above. No Mac at any point, but gated on Apple approving the
-  Family Controls entitlement.
-- **A Mac**, with the iPhone plugged in. The only route that skips the
-  entitlement request, since Xcode grants Family Controls for local development
-  builds. Borrowed or rented by the hour both work for the initial proof that
-  the app behaves.
-- **TestFlight**, which needs the same Apple approval as CI signing.
+### Fastest and most certain: half an hour on a physical Mac
 
-Neither an iPad nor a Windows PC can do this. Xcode does not exist for iPadOS,
-and Swift Playgrounds cannot build app extensions or set the entitlements these
-extensions need.
+Xcode provisions Family Controls automatically for a development build running
+on your own device, with no entitlement request and no waiting. Any Mac you can
+plug the phone into will do, borrowed or otherwise.
+
+```
+brew install xcodegen
+cd ios && xcodegen generate && open BrainRot.xcodeproj
+```
+
+Set your team on all four targets, plug in the iPhone, press Run.
+
+This has to be a Mac in the same room as the phone. A **rented cloud Mac cannot
+do it**: your iPhone is not attached to a machine in a data centre, and Xcode
+needs the device present to install onto it. A cloud Mac can only compile and
+sign, which the CI pipeline here already does for free.
+
+### No Mac at all: a development build from CI
+
+Run the **iOS signed build** workflow with the `debugging` export method. That
+signs with an Apple Development certificate against development profiles, which
+is the variant Apple provisions Family Controls for without an approval request.
+It needs your iPhone's UDID registered on the developer portal and named in all
+four profiles.
+
+Installing the resulting `.ipa` from Windows is the loose end. Apple Configurator
+is Mac-only and iTunes has not installed `.ipa` files since 12.7, so it takes
+either a Windows tool such as iMazing or 3uTools, or an over-the-air install
+service such as Diawi that serves the build to Safari on the phone. Whether a
+development-signed build installs cleanly over the air varies; try it before
+assuming it works.
+
+### Slowest, cleanest once it lands: TestFlight
+
+Requires the Family Controls **distribution** entitlement, which is a request
+form Apple reviews, with no guaranteed outcome or timeline. Worth submitting
+early, since it blocks anyone other than you ever installing this.
+
+### Not possible
+
+Neither an iPad nor a Windows PC can build this. Xcode does not exist for
+iPadOS, and Swift Playgrounds cannot build app extensions or set the
+entitlements these extensions need.

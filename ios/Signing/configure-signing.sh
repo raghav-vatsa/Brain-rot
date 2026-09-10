@@ -106,6 +106,17 @@ if [ -z "$targets_and_bundles" ]; then
   exit 1
 fi
 
+# The signing identity follows the export method. "debugging" is Xcode 15's
+# name for a development build, and those are signed by an Apple Development
+# certificate; every other method uses Apple Distribution. This matters beyond
+# tidiness: a development build is the only kind Apple provisions Family
+# Controls for without an approved entitlement request.
+case "$EXPORT_METHOD" in
+  debugging|development) SIGN_IDENTITY="Apple Development" ;;
+  *)                     SIGN_IDENTITY="Apple Distribution" ;;
+esac
+echo "Signing identity: $SIGN_IDENTITY"
+
 # ExportOptions.plist, built up as we go.
 rm -f "$OUT_PLIST"
 $PLIST_BUDDY -c "Add :method string $EXPORT_METHOD" \
@@ -132,7 +143,7 @@ while IFS=$'\t' read -r target bundle_id; do
 CODE_SIGN_STYLE = Manual
 DEVELOPMENT_TEAM = $TEAM_ID
 PROVISIONING_PROFILE_SPECIFIER = $profile_name
-CODE_SIGN_IDENTITY = Apple Distribution
+CODE_SIGN_IDENTITY = $SIGN_IDENTITY
 EOF
 
   $PLIST_BUDDY -c "Add :provisioningProfiles:$bundle_id string $profile_name" \
